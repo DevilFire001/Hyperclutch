@@ -197,23 +197,28 @@ appId:"1:781538384038:web:002bb30ad711c3deb3fc67"
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
+
+/* ✅ FIX: KEEP SESSION */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
-const ADMIN_UID="TopeuI03AVRY7MULu332UdXFRaR2";
+const ADMIN_UID="qeGyCVDkhdR3dVBPPqgbREjYMUT2";
 
 let withdrawData=[];
 
+/* ✅ FIX: PROPER AUTH HANDLING */
 auth.onAuthStateChanged(user=>{
 
 if(!user){
-window.location="login.html";
+window.location="index.html";
 return;
 }
 
 if(user.uid!==ADMIN_UID){
 alert("Access Denied");
-window.location="dashboard.html";
+window.location="index.html";
 return;
 }
 
@@ -384,5 +389,3 @@ paymentTime:firebase.firestore.FieldValue.serverTimestamp()
 
 </body>
 </html>
-
-    
