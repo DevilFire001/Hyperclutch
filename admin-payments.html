@@ -1,10 +1,15 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>HyperClutch Admin - Payments</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
+
+/* HIDE UNTIL AUTH CHECK */
+body { display: none; }
+
 /* GENERAL */
 body {
     background: #0f172a;
@@ -13,10 +18,12 @@ body {
     margin: 0;
     padding: 20px;
 }
+
 h1, h2 {
     text-align: center;
     margin-bottom: 15px;
 }
+
 .container {
     max-width: 900px;
     margin: auto;
@@ -36,21 +43,22 @@ h1, h2 {
     flex-wrap: wrap;
     transition: transform 0.2s, box-shadow 0.2s;
 }
+
 .card:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
-/* REQUEST INFO */
 .card-info {
     flex: 1;
     min-width: 200px;
 }
+
 .card-info div {
     margin: 5px 0;
 }
 
-/* STATUS COLORS */
+/* STATUS */
 .status-approved { color: #22c55e; font-weight: bold; }
 .status-cancelled { color: #ef4444; font-weight: bold; }
 
@@ -59,20 +67,22 @@ h1, h2 {
     display: flex;
     gap: 10px;
 }
+
 button {
     border: none;
     padding: 8px 16px;
     border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
-    transition: 0.2s;
 }
+
 button.approve { background: #22c55e; }
 button.approve:hover { background: #16a34a; }
+
 button.cancel { background: #ef4444; }
 button.cancel:hover { background: #dc2626; }
 
-/* EMPTY MESSAGE */
+/* EMPTY */
 .empty {
     text-align: center;
     color: #94a3b8;
@@ -91,19 +101,22 @@ button.cancel:hover { background: #dc2626; }
     align-items: center;
     z-index: 999;
 }
+
 .modal {
     background: #1e293b;
-    padding: 25px 30px;
+    padding: 25px;
     border-radius: 12px;
     text-align: center;
-    min-width: 280px;
 }
+
 .modal button {
     width: 100px;
-    margin: 15px 10px 0 10px;
+    margin: 15px 10px 0;
 }
+
 </style>
 </head>
+
 <body>
 
 <h1>💰 Payment Requests</h1>
@@ -128,8 +141,10 @@ button.cancel:hover { background: #dc2626; }
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
+
 // CONFIG
-const ADMIN_UID = "rveTtnZTLwNHIU9MZORa8auOxFU2";
+const ADMIN_UID = "qeGyCVDkhdR3dVBPPqgbREjYMUT2";
+
 const firebaseConfig = {
     apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
     authDomain:"hyperclutch.firebaseapp.com",
@@ -137,38 +152,68 @@ const firebaseConfig = {
     appId:"1:781538384038:web:002bb30ad711c3deb3fc67",
     databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/"
 };
+
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
-// CURRENT MODAL DATA
-let modalData = {};
-
-// AUTH CHECK
+// AUTH FIX (IMPORTANT)
 auth.onAuthStateChanged(user => {
-    if(!user || user.uid !== ADMIN_UID){
-        alert("⛔ Access Denied");
-        window.location="index.html";
-        return;
+
+    if(user){
+        if(user.uid === ADMIN_UID){
+
+            // SHOW PAGE AFTER AUTH SUCCESS
+            document.body.style.display = "block";
+
+            loadRequests();
+            loadHistory();
+
+        } else {
+            alert("⛔ Not Admin");
+            window.location.href = "index.html";
+        }
+    } else {
+        // WAIT 1 SEC BEFORE REDIRECT (FIXES GITHUB ISSUE)
+        setTimeout(() => {
+            if(!auth.currentUser){
+                window.location.href = "index.html";
+            }
+        }, 1000);
     }
-    loadRequests();
-    loadHistory();
 });
 
-// LOAD PAYMENT REQUESTS
+// MODAL
+let modalData = {};
+const modal = document.getElementById("modal");
+
+document.getElementById("modalNo").onclick = () => modal.style.display = "none";
+
+document.getElementById("modalYes").onclick = () => {
+    modal.style.display = "none";
+    if(modalData.action === "approve") approvePayment(modalData);
+    else cancelPayment(modalData);
+};
+
+// LOAD REQUESTS
 function loadRequests(){
-    db.collection("paymentRequests").onSnapshot(snapshot => {
+    db.collection("paymentRequests").orderBy("time","asc")
+    .onSnapshot(snapshot => {
+
         const container = document.getElementById("requestsContainer");
         container.innerHTML = "";
+
         if(snapshot.empty){
             container.innerHTML = "<div class='empty'>No Requests</div>";
             return;
         }
 
         snapshot.forEach(doc => {
+
             const d = doc.data();
+
             const card = document.createElement("div");
             card.className = "card";
 
@@ -184,7 +229,6 @@ function loadRequests(){
                 </div>
             `;
 
-            // Save data in dataset
             ["approveBtn","cancelBtn"].forEach(cls => {
                 const btn = card.querySelector("."+cls);
                 btn.dataset.docId = doc.id;
@@ -201,43 +245,50 @@ function loadRequests(){
 
 // LOAD HISTORY
 function loadHistory(){
-    db.collection("paymentHistory").orderBy("time","desc").onSnapshot(snapshot => {
+    db.collection("paymentHistory").orderBy("time","desc")
+    .onSnapshot(snapshot => {
+
         const container = document.getElementById("historyContainer");
         container.innerHTML = "";
+
         if(snapshot.empty){
             container.innerHTML = "<div class='empty'>No History</div>";
             return;
         }
+
         snapshot.forEach(doc => {
+
             const d = doc.data();
+
             const card = document.createElement("div");
             card.className = "card";
-            const statusClass = d.status==="approved" ? "status-approved" : "status-cancelled";
+
+            const statusClass = d.status==="approved"
+                ? "status-approved"
+                : "status-cancelled";
+
             card.innerHTML = `
                 <div class="card-info">
-                    <div class="${statusClass}">${d.status.toUpperCase()} - ₹${d.amount}</div>
+                    <div class="${statusClass}">
+                        ${d.status.toUpperCase()} - ₹${d.amount}
+                    </div>
                     <div>📱 ${d.phone || "-"}</div>
                     <div>🔢 UTR: ${d.utr || "-"}</div>
                 </div>
             `;
+
             container.appendChild(card);
         });
     });
 }
 
-// MODAL HANDLERS
-const modal = document.getElementById("modal");
-document.getElementById("modalNo").onclick = () => modal.style.display = "none";
-document.getElementById("modalYes").onclick = () => {
-    modal.style.display = "none";
-    if(modalData.action === "approve") approvePayment(modalData);
-    else cancelPayment(modalData);
-};
-
-// EVENT DELEGATION
+// CLICK EVENTS
 document.getElementById("requestsContainer").addEventListener("click", e => {
+
     if(e.target.classList.contains("approveBtn") || e.target.classList.contains("cancelBtn")){
+
         const btn = e.target;
+
         modalData = {
             action: btn.classList.contains("approveBtn") ? "approve" : "cancel",
             docId: btn.dataset.docId,
@@ -246,7 +297,12 @@ document.getElementById("requestsContainer").addEventListener("click", e => {
             phone: btn.dataset.phone,
             utr: btn.dataset.utr
         };
-        document.getElementById("modalText").innerText = modalData.action === "approve" ? "Approve Payment?" : "Cancel Payment?";
+
+        document.getElementById("modalText").innerText =
+            modalData.action === "approve"
+            ? "Approve Payment?"
+            : "Cancel Payment?";
+
         modal.style.display = "flex";
     }
 });
@@ -256,33 +312,34 @@ function approvePayment(data){
     rtdb.ref("users/"+data.uid+"/wallet").once("value")
     .then(snap => rtdb.ref("users/"+data.uid+"/wallet").set((snap.val()||0)+data.amount))
     .then(() => db.collection("paymentHistory").add({
-        uid: data.uid,
-        amount: data.amount,
-        status: "approved",
-        phone: data.phone,
-        utr: data.utr,
-        time: Date.now()
+        uid:data.uid,
+        amount:data.amount,
+        status:"approved",
+        phone:data.phone,
+        utr:data.utr,
+        time:Date.now()
     }))
     .then(() => db.collection("paymentRequests").doc(data.docId).delete())
-    .then(() => alert("✅ Payment Approved"))
-    .catch(err => { console.error(err); alert("❌ Error: "+err.message); });
+    .then(() => alert("✅ Approved"))
+    .catch(err => alert("❌ "+err.message));
 }
 
 // CANCEL
 function cancelPayment(data){
     db.collection("paymentHistory").add({
-        uid: data.uid,
-        amount: data.amount,
-        status: "cancelled",
-        phone: data.phone,
-        utr: data.utr,
-        time: Date.now()
+        uid:data.uid,
+        amount:data.amount,
+        status:"cancelled",
+        phone:data.phone,
+        utr:data.utr,
+        time:Date.now()
     })
     .then(() => db.collection("paymentRequests").doc(data.docId).delete())
-    .then(() => alert("❌ Payment Cancelled"))
-    .catch(err => { console.error(err); alert("❌ Error: "+err.message); });
+    .then(() => alert("❌ Cancelled"))
+    .catch(err => alert("❌ "+err.message));
 }
+
 </script>
 
 </body>
-</html>    
+</html>
