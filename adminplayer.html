@@ -151,21 +151,24 @@ databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/"
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
+
+/* ✅ FIX: KEEP SESSION */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
-const ADMIN_UID="TopeuI03AVRY7MULu332UdXFRaR2";
+const ADMIN_UID="qeGyCVDkhdR3dVBPPqgbREjYMUT2";
 
 let tournaments=[];
 let players=[];
 let currentTournament="";
 
-/* AUTH CHECK */
-
+/* ✅ FIX: PROPER AUTH FLOW */
 auth.onAuthStateChanged(user=>{
 
 if(!user){
-window.location="login.html";
+window.location="index.html";
 return;
 }
 
@@ -175,6 +178,7 @@ window.location="index.html";
 return;
 }
 
+/* LOAD ONLY AFTER AUTH */
 loadTournaments();
 
 });
@@ -183,12 +187,15 @@ loadTournaments();
 
 function loadTournaments(){
 
+const select=document.getElementById("tournamentSelect");
+select.innerHTML='<option value="">--Select Tournament--</option>';
+
 db.collection("tournaments")
 .orderBy("datetime","asc")
 .get()
 .then(snapshot=>{
 
-const select=document.getElementById("tournamentSelect");
+tournaments=[];
 
 snapshot.forEach(doc=>{
 
@@ -290,19 +297,15 @@ players[i].kills=parseInt(val)||0;
 }
 
 function setHighest(i){
-
 players.forEach(p=>p.highest=false);
 players[i].highest=true;
 reloadCheckboxes();
-
 }
 
 function setWinner(i){
-
 players.forEach(p=>p.winner=false);
 players[i].winner=true;
 reloadCheckboxes();
-
 }
 
 function reloadCheckboxes(){
@@ -346,6 +349,7 @@ if(check.exists){
 
 alert("Match already completed!");
 document.getElementById("status").innerText="Tournament already processed.";
+document.getElementById("confirmBtn").disabled=false;
 return;
 
 }
@@ -356,14 +360,14 @@ let reward =
 player.kills * (tour.data.per_kill || 0);
 
 if(player.highest){
-reward += (tour.data.highest_kill_prize || 0);
+reward += (tour.data.highest_kill || 0);
 }
 
 if(player.winner){
 reward += (tour.data.winning_prize || 0);
 }
 
-/* ADD TO PLAYER WALLET */
+/* ADD TO WALLET */
 
 await rtdb
 .ref("users/"+player.uid+"/wallet")
@@ -376,12 +380,10 @@ return (current||0)+reward;
 await rtdb
 .ref("transactions/"+player.uid)
 .push({
-
 type:"tournament_win",
 amount:reward,
 tournament:currentTournament,
 time:Date.now()
-
 });
 
 /* SAVE RESULT */
@@ -392,7 +394,6 @@ await db
 .collection("players")
 .doc(player.uid)
 .set({
-
 name:player.name,
 ffuid:player.ffuid,
 kills:player.kills,
@@ -400,12 +401,11 @@ winner:player.winner,
 highest:player.highest,
 reward:reward,
 time:firebase.firestore.FieldValue.serverTimestamp()
-
 });
 
 }
 
-/* LOCK TOURNAMENT */
+/* LOCK */
 
 await db
 .collection("tournamentResults")
@@ -433,4 +433,3 @@ document.getElementById("confirmBtn").disabled=false;
 
 </body>
 </html>
-    
