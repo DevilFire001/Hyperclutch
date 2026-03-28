@@ -4,7 +4,6 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>HyperClutch Admin Withdraw Manager</title>
 
 <style>
@@ -20,8 +19,6 @@ h1{
 text-align:center;
 margin-bottom:25px;
 }
-
-/* TOP BAR */
 
 .topbar{
 display:flex;
@@ -49,8 +46,6 @@ padding:10px 16px;
 border-radius:8px;
 }
 
-/* TABLE */
-
 table{
 width:100%;
 border-collapse:collapse;
@@ -70,8 +65,6 @@ th{
 background:#020617;
 }
 
-/* BUTTON */
-
 button{
 padding:7px 12px;
 border:none;
@@ -80,17 +73,8 @@ cursor:pointer;
 font-weight:bold;
 }
 
-.approve{
-background:#22c55e;
-color:white;
-}
-
-.reject{
-background:#ef4444;
-color:white;
-}
-
-/* BADGE */
+.approve{background:#22c55e;color:white;}
+.reject{background:#ef4444;color:white;}
 
 .badge{
 padding:4px 8px;
@@ -103,8 +87,13 @@ font-weight:bold;
 .approved{background:#22c55e;}
 .rejected{background:#ef4444;}
 
-.section{
-margin-top:35px;
+.section{margin-top:35px;}
+
+.loading{
+text-align:center;
+margin-top:50px;
+font-size:18px;
+color:#94a3b8;
 }
 
 </style>
@@ -114,28 +103,25 @@ margin-top:35px;
 
 <h1>🏦 HyperClutch Withdraw Manager</h1>
 
+<div id="loading" class="loading">🔄 Checking Admin Access...</div>
+
+<div id="mainContent" style="display:none;">
+
 <div class="topbar">
 
 <input id="searchInput" class="search" placeholder="Search UID or UPI">
 
 <div class="stats">
-
 <div class="stat">Pending ₹ <span id="pendingAmount">0</span></div>
-
 <div class="stat">Paid ₹ <span id="paidAmount">0</span></div>
-
 </div>
 
 </div>
-
-<!-- PENDING -->
 
 <div class="section">
-
 <h2>Pending Requests</h2>
 
 <table>
-
 <thead>
 <tr>
 <th>User</th>
@@ -148,19 +134,13 @@ margin-top:35px;
 </thead>
 
 <tbody id="pendingTable"></tbody>
-
 </table>
-
 </div>
 
-<!-- HISTORY -->
-
 <div class="section">
-
 <h2>Withdraw History</h2>
 
 <table>
-
 <thead>
 <tr>
 <th>User</th>
@@ -173,11 +153,10 @@ margin-top:35px;
 </thead>
 
 <tbody id="historyTable"></tbody>
-
 </table>
-
 </div>
 
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -186,6 +165,7 @@ margin-top:35px;
 
 <script>
 
+/* FIREBASE */
 const firebaseConfig={
 apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
 authDomain:"hyperclutch.firebaseapp.com",
@@ -194,13 +174,9 @@ databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/",
 appId:"1:781538384038:web:002bb30ad711c3deb3fc67"
 };
 
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
-
-/* ✅ FIX: KEEP SESSION */
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
@@ -208,25 +184,40 @@ const ADMIN_UID="qeGyCVDkhdR3dVBPPqgbREjYMUT2";
 
 let withdrawData=[];
 
-/* ✅ FIX: PROPER AUTH HANDLING */
+/* 🔥 FIXED AUTH HANDLING */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
+
 auth.onAuthStateChanged(user=>{
+
+if(user === undefined) return;
+
+/* WAIT FOR AUTH LOAD */
+setTimeout(()=>{
 
 if(!user){
 window.location="index.html";
 return;
 }
 
-if(user.uid!==ADMIN_UID){
-alert("Access Denied");
+if(user.uid !== ADMIN_UID){
+alert("⛔ Access Denied");
 window.location="index.html";
 return;
 }
 
+/* SHOW PAGE */
+document.getElementById("loading").style.display="none";
+document.getElementById("mainContent").style.display="block";
+
 loadWithdraws();
+
+},500);
 
 });
 
+});
 
+/* LOAD DATA */
 function loadWithdraws(){
 
 db.collection("withdrawRequests")
@@ -245,12 +236,10 @@ render();
 
 }
 
-
 function render(){
 
 let pendingHTML="";
 let historyHTML="";
-
 let pendingAmount=0;
 let paidAmount=0;
 
@@ -262,26 +251,15 @@ if(search && !data.uid.toLowerCase().includes(search) && !data.upi.toLowerCase()
 return;
 }
 
-let requestTime="";
-let paymentTime="";
-
-if(data.time){
-requestTime=new Date(data.time.seconds*1000).toLocaleString();
-}
-
-if(data.paymentTime){
-paymentTime=new Date(data.paymentTime.seconds*1000).toLocaleString();
-}
+let requestTime=data.time ? new Date(data.time.seconds*1000).toLocaleString() : "";
+let paymentTime=data.paymentTime ? new Date(data.paymentTime.seconds*1000).toLocaleString() : "";
 
 let row=`
-
 <tr>
-
 <td>${data.uid}</td>
 <td>₹${data.amount}</td>
 <td>${data.upi}</td>
 <td>${requestTime}</td>
-
 `;
 
 if(data.status==="pending"){
@@ -289,37 +267,21 @@ if(data.status==="pending"){
 pendingAmount+=data.amount;
 
 pendingHTML+=row+`
-
 <td><span class="badge pending">pending</span></td>
-
 <td>
-
 <button class="approve" onclick="approve('${data.id}','${data.uid}',${data.amount})">Approve</button>
-
 <button class="reject" onclick="reject('${data.id}')">Reject</button>
-
 </td>
-
-</tr>
-
-`;
-
+</tr>`;
 }
-
 else{
 
 if(data.status==="approved") paidAmount+=data.amount;
 
 historyHTML+=row+`
-
 <td>${paymentTime}</td>
-
 <td><span class="badge ${data.status}">${data.status}</span></td>
-
-</tr>
-
-`;
-
+</tr>`;
 }
 
 });
@@ -332,56 +294,37 @@ document.getElementById("paidAmount").innerText=paidAmount;
 
 }
 
-
-/* SEARCH */
-
 document.getElementById("searchInput").addEventListener("input",render);
 
-
 /* APPROVE */
-
 function approve(id,uid,amount){
 
 if(!confirm("Confirm payment completed?")) return;
 
-const walletRef=rtdb.ref("users/"+uid+"/wallet");
-
-walletRef.once("value").then(snap=>{
-
-let wallet=snap.val()||0;
-
-wallet-=amount;
-
-if(wallet<0) wallet=0;
-
-walletRef.set(wallet);
-
+rtdb.ref("users/"+uid+"/wallet").transaction(current=>{
+return Math.max((current||0)-amount,0);
 });
 
 db.collection("withdrawRequests").doc(id).update({
-
 status:"approved",
 paymentTime:firebase.firestore.FieldValue.serverTimestamp()
-
 });
 
-alert("Payment marked completed");
+alert("✅ Approved");
 
 }
 
-
 /* REJECT */
-
 function reject(id){
 
 if(!confirm("Reject this request?")) return;
 
 db.collection("withdrawRequests").doc(id).update({
-
 status:"rejected",
 paymentTime:firebase.firestore.FieldValue.serverTimestamp()
-
 });
+
+alert("❌ Rejected");
 
 }
 
