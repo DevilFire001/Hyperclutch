@@ -1,4 +1,4 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
 
@@ -101,7 +101,6 @@ button{
 
 <input id="name" placeholder="Tournament Name">
 
-<!-- NEW datetime-local input -->
 <label style="margin-top:10px;">Date & Time</label>
 <input type="datetime-local" id="datetime">
 
@@ -121,6 +120,7 @@ button{
 <script>
 
 /* FIREBASE CONFIG */
+const ADMIN_UID = "qeGyCVDkhdR3dVBPPqgbREjYMUT2";
 
 const firebaseConfig={
 apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
@@ -131,23 +131,54 @@ appId:"1:781538384038:web:002bb30ad711c3deb3fc67"
 
 firebase.initializeApp(firebaseConfig);
 
-const db=firebase.firestore();
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+/* ✅ KEEP LOGIN SESSION (IMPORTANT FIX) */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+/* ✅ FIX: WAIT FOR AUTH BEFORE LOADING */
+auth.onAuthStateChanged(user => {
+
+    if(!user){
+        window.location="index.html";
+        return;
+    }
+
+    if(user.uid !== ADMIN_UID){
+        alert("⛔ Access Denied");
+        window.location="index.html";
+        return;
+    }
+
+    /* ✅ LOAD ONLY AFTER AUTH SUCCESS */
+    loadTournaments();
+
+});
 
 /* LOAD TOURNAMENTS */
 
 function loadTournaments(){
     const container=document.getElementById("tournaments");
-    db.collection("tournaments").orderBy("datetime","asc").onSnapshot(snapshot=>{
+
+    db.collection("tournaments")
+    .orderBy("datetime","asc")
+    .onSnapshot(snapshot=>{
+
         container.innerHTML="";
+
         if(snapshot.empty){
             container.innerHTML="<p>No tournaments added yet</p>";
             return;
         }
+
         snapshot.forEach(doc=>{
             const t=doc.data();
-            const dateObj = t.datetime.toDate(); // Firestore Timestamp -> JS Date
+
+            const dateObj = t.datetime.toDate();
             const formattedDate = dateObj.toLocaleDateString();
             const formattedTime = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
             container.innerHTML+=`
             <div class="card">
                 <h3>${t.name}</h3>
@@ -161,12 +192,14 @@ function loadTournaments(){
             </div>
             `;
         });
+
     });
 }
 
 /* ADD TOURNAMENT */
 
 function addTournament(){
+
     const name=document.getElementById("name").value;
     const datetimeStr=document.getElementById("datetime").value;
     const entry_fee=document.getElementById("entry_fee").value;
@@ -179,7 +212,7 @@ function addTournament(){
         return;
     }
 
-    const datetime = new Date(datetimeStr); // JS Date from input
+    const datetime = new Date(datetimeStr);
 
     db.collection("tournaments").add({
         name: name,
@@ -199,20 +232,21 @@ function addTournament(){
         document.getElementById("per_kill").value="";
         document.getElementById("highest_kill").value="";
     });
+
 }
 
 /* DELETE TOURNAMENT */
 
 function deleteTournament(id){
+
     if(!confirm("Delete this tournament?")) return;
+
     db.collection("tournaments").doc(id).delete()
     .then(()=>{ alert("Tournament Deleted"); });
-}
 
-/* START */
-loadTournaments();
+}
 
 </script>
 
 </body>
-</html>    
+</html>
