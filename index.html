@@ -1,123 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HyperClutch Admin Panel</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HyperClutch Admin Panel</title>
 
-    .container {
-      text-align: center;
-      display: none;
-    }
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-    .login-box {
-      background: #1e293b;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.5);
-      text-align: center;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
 
-    input {
-      width: 250px;
-      padding: 12px;
-      margin: 10px 0;
-      border-radius: 8px;
-      border: none;
-      outline: none;
-    }
+.container {
+  text-align: center;
+  display: none;
+}
 
-    .login-btn {
-      padding: 12px 25px;
-      border: none;
-      border-radius: 8px;
-      background: #22c55e;
-      color: white;
-      cursor: pointer;
-      font-size: 16px;
-    }
+.login-box {
+  background: #1e293b;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  text-align: center;
+}
 
-    h1 {
-      margin-bottom: 20px;
-    }
+input {
+  width: 250px;
+  padding: 12px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+}
 
-    .btn {
-      display: block;
-      width: 250px;
-      margin: 15px auto;
-      padding: 15px;
-      font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: 0.3s;
-      text-decoration: none;
-      color: white;
-    }
+.login-btn {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 8px;
+  background: #22c55e;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+}
 
-    .btn:hover {
-      transform: scale(1.05);
-      opacity: 0.9;
-    }
+h1 {
+  margin-bottom: 20px;
+}
 
-    .payments { background: #22c55e; }
-    .dashboard { background: #3b82f6; }
-    .adminpay { background: #f59e0b; }
-    .players { background: #ef4444; }
+.btn {
+  display: block;
+  width: 250px;
+  margin: 15px auto;
+  padding: 15px;
+  font-size: 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  color: white;
+}
 
-    .error {
-      color: red;
-      margin-top: 10px;
-    }
-  </style>
+.payments { background: #22c55e; }
+.dashboard { background: #3b82f6; }
+.adminpay { background: #f59e0b; }
+.players { background: #ef4444; }
+
+.error {
+  color: red;
+  margin-top: 10px;
+}
+</style>
 </head>
+
 <body>
 
-  <!-- LOGIN -->
-  <div class="login-box" id="loginBox">
-    <h1>Admin Login</h1>
-    <input type="password" id="password" placeholder="Enter Admin Password">
-    <br>
-    <button class="login-btn" onclick="login()">Login</button>
-    <div class="error" id="error"></div>
-  </div>
+<!-- LOGIN -->
+<div class="login-box" id="loginBox">
+  <h1>Admin Login</h1>
+  <input type="email" id="email" placeholder="Admin Email">
+  <input type="password" id="password" placeholder="Password">
+  <br>
+  <button class="login-btn" onclick="login()">Login</button>
+  <div class="error" id="error"></div>
+</div>
 
-  <!-- DASHBOARD -->
-  <div class="container" id="dashboard">
-    <h1>HyperClutch Admin Panel</h1>
+<!-- DASHBOARD -->
+<div class="container" id="dashboard">
+  <h1>HyperClutch Admin Panel</h1>
 
-    <a href="admin-payments.html" class="btn payments">Go to Payments</a>
-    <a href="admin.html" class="btn dashboard">Go to Dashboard</a>
-    <a href="adminpay.html" class="btn adminpay">Go to Admin Pay</a>
-    <a href="adminplayer.html" class="btn players">Go to Player Management</a>
-  </div>
+  <a href="admin-payments.html" class="btn payments">Go to Payments</a>
+  <a href="admin.html" class="btn dashboard">Go to Dashboard</a>
+  <a href="adminpay.html" class="btn adminpay">Go to Admin Pay</a>
+  <a href="adminplayer.html" class="btn players">Go to Player Management</a>
 
-  <script>
-    const ADMIN_PASSWORD = "12345"; // CHANGE THIS
+  <button onclick="logout()" class="btn" style="background:#ef4444;">Logout</button>
+</div>
 
-    function login() {
-      const pass = document.getElementById("password").value;
-      const error = document.getElementById("error");
+<script>
 
-      if (pass === ADMIN_PASSWORD) {
-        document.getElementById("loginBox").style.display = "none";
-        document.getElementById("dashboard").style.display = "block";
-      } else {
-        error.innerText = "Wrong password!";
-      }
-    }
-  </script>
+/* FIREBASE CONFIG */
+const firebaseConfig={
+apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
+authDomain:"hyperclutch.firebaseapp.com",
+projectId:"hyperclutch",
+appId:"1:781538384038:web:002bb30ad711c3deb3fc67"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+// ✅ YOUR ADMIN UID
+const ADMIN_UID = "qeGyCVDkhdR3dVBPPqgbREjYMUT2";
+
+/* LOGIN FUNCTION */
+function login(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const error = document.getElementById("error");
+
+  auth.signInWithEmailAndPassword(email, password)
+  .then(()=>{})
+  .catch(err=>{
+    error.innerText = err.message;
+  });
+}
+
+/* LOGOUT */
+function logout(){
+  auth.signOut();
+}
+
+/* AUTH CHECK */
+auth.onAuthStateChanged(user=>{
+  if(user && user.uid === ADMIN_UID){
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+  } else {
+    document.getElementById("loginBox").style.display = "block";
+    document.getElementById("dashboard").style.display = "none";
+  }
+});
+
+</script>
 
 </body>
 </html>
