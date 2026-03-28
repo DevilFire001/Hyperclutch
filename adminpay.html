@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>HyperClutch Admin Withdraw Manager</title>
+
+<style>
+
+body{
+background:#0f172a;
+color:white;
+font-family:Arial;
+padding:30px;
+}
+
+h1{
+text-align:center;
+margin-bottom:25px;
+}
+
+/* TOP BAR */
+
+.topbar{
+display:flex;
+justify-content:space-between;
+flex-wrap:wrap;
+gap:10px;
+margin-bottom:20px;
+}
+
+.search{
+padding:10px;
+border-radius:6px;
+border:none;
+width:250px;
+}
+
+.stats{
+display:flex;
+gap:10px;
+}
+
+.stat{
+background:#1e293b;
+padding:10px 16px;
+border-radius:8px;
+}
+
+/* TABLE */
+
+table{
+width:100%;
+border-collapse:collapse;
+background:#1e293b;
+border-radius:10px;
+overflow:hidden;
+margin-bottom:30px;
+}
+
+th,td{
+padding:12px;
+text-align:center;
+border-bottom:1px solid #334155;
+}
+
+th{
+background:#020617;
+}
+
+/* BUTTON */
+
+button{
+padding:7px 12px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+font-weight:bold;
+}
+
+.approve{
+background:#22c55e;
+color:white;
+}
+
+.reject{
+background:#ef4444;
+color:white;
+}
+
+/* BADGE */
+
+.badge{
+padding:4px 8px;
+border-radius:5px;
+font-size:12px;
+font-weight:bold;
+}
+
+.pending{background:#facc15;color:black;}
+.approved{background:#22c55e;}
+.rejected{background:#ef4444;}
+
+.section{
+margin-top:35px;
+}
+
+</style>
+
+</head>
+<body>
+
+<h1>🏦 HyperClutch Withdraw Manager</h1>
+
+<div class="topbar">
+
+<input id="searchInput" class="search" placeholder="Search UID or UPI">
+
+<div class="stats">
+
+<div class="stat">Pending ₹ <span id="pendingAmount">0</span></div>
+
+<div class="stat">Paid ₹ <span id="paidAmount">0</span></div>
+
+</div>
+
+</div>
+
+<!-- PENDING -->
+
+<div class="section">
+
+<h2>Pending Requests</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>User</th>
+<th>Amount</th>
+<th>UPI</th>
+<th>Request Time</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody id="pendingTable"></tbody>
+
+</table>
+
+</div>
+
+<!-- HISTORY -->
+
+<div class="section">
+
+<h2>Withdraw History</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>User</th>
+<th>Amount</th>
+<th>UPI</th>
+<th>Request Time</th>
+<th>Payment Time</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody id="historyTable"></tbody>
+
+</table>
+
+</div>
+
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+
+const firebaseConfig={
+apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
+authDomain:"hyperclutch.firebaseapp.com",
+projectId:"hyperclutch",
+databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/",
+appId:"1:781538384038:web:002bb30ad711c3deb3fc67"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const rtdb = firebase.database();
+
+const ADMIN_UID="TopeuI03AVRY7MULu332UdXFRaR2";
+
+let withdrawData=[];
+
+auth.onAuthStateChanged(user=>{
+
+if(!user){
+window.location="login.html";
+return;
+}
+
+if(user.uid!==ADMIN_UID){
+alert("Access Denied");
+window.location="dashboard.html";
+return;
+}
+
+loadWithdraws();
+
+});
+
+
+function loadWithdraws(){
+
+db.collection("withdrawRequests")
+.orderBy("time","desc")
+.onSnapshot(snapshot=>{
+
+withdrawData=[];
+
+snapshot.forEach(doc=>{
+withdrawData.push({id:doc.id,...doc.data()});
+});
+
+render();
+
+});
+
+}
+
+
+function render(){
+
+let pendingHTML="";
+let historyHTML="";
+
+let pendingAmount=0;
+let paidAmount=0;
+
+let search=document.getElementById("searchInput").value.toLowerCase();
+
+withdrawData.forEach(data=>{
+
+if(search && !data.uid.toLowerCase().includes(search) && !data.upi.toLowerCase().includes(search)){
+return;
+}
+
+let requestTime="";
+let paymentTime="";
+
+if(data.time){
+requestTime=new Date(data.time.seconds*1000).toLocaleString();
+}
+
+if(data.paymentTime){
+paymentTime=new Date(data.paymentTime.seconds*1000).toLocaleString();
+}
+
+let row=`
+
+<tr>
+
+<td>${data.uid}</td>
+<td>₹${data.amount}</td>
+<td>${data.upi}</td>
+<td>${requestTime}</td>
+
+`;
+
+if(data.status==="pending"){
+
+pendingAmount+=data.amount;
+
+pendingHTML+=row+`
+
+<td><span class="badge pending">pending</span></td>
+
+<td>
+
+<button class="approve" onclick="approve('${data.id}','${data.uid}',${data.amount})">Approve</button>
+
+<button class="reject" onclick="reject('${data.id}')">Reject</button>
+
+</td>
+
+</tr>
+
+`;
+
+}
+
+else{
+
+if(data.status==="approved") paidAmount+=data.amount;
+
+historyHTML+=row+`
+
+<td>${paymentTime}</td>
+
+<td><span class="badge ${data.status}">${data.status}</span></td>
+
+</tr>
+
+`;
+
+}
+
+});
+
+document.getElementById("pendingTable").innerHTML=pendingHTML;
+document.getElementById("historyTable").innerHTML=historyHTML;
+
+document.getElementById("pendingAmount").innerText=pendingAmount;
+document.getElementById("paidAmount").innerText=paidAmount;
+
+}
+
+
+/* SEARCH */
+
+document.getElementById("searchInput").addEventListener("input",render);
+
+
+/* APPROVE */
+
+function approve(id,uid,amount){
+
+if(!confirm("Confirm payment completed?")) return;
+
+const walletRef=rtdb.ref("users/"+uid+"/wallet");
+
+walletRef.once("value").then(snap=>{
+
+let wallet=snap.val()||0;
+
+wallet-=amount;
+
+if(wallet<0) wallet=0;
+
+walletRef.set(wallet);
+
+});
+
+db.collection("withdrawRequests").doc(id).update({
+
+status:"approved",
+paymentTime:firebase.firestore.FieldValue.serverTimestamp()
+
+});
+
+alert("Payment marked completed");
+
+}
+
+
+/* REJECT */
+
+function reject(id){
+
+if(!confirm("Reject this request?")) return;
+
+db.collection("withdrawRequests").doc(id).update({
+
+status:"rejected",
+paymentTime:firebase.firestore.FieldValue.serverTimestamp()
+
+});
+
+}
+
+</script>
+
+</body>
+</html>
+
+    

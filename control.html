@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HyperClutch Admin Panel</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      text-align: center;
+      display: none;
+    }
+
+    .login-box {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    input {
+      width: 250px;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+    }
+
+    .login-btn {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: #22c55e;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      display: block;
+      width: 250px;
+      margin: 15px auto;
+      padding: 15px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+      text-decoration: none;
+      color: white;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+
+    .payments { background: #22c55e; }
+    .dashboard { background: #3b82f6; }
+    .adminpay { background: #f59e0b; }
+    .players { background: #ef4444; }
+
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div class="login-box" id="loginBox">
+    <h1>Admin Login</h1>
+    <input type="password" id="password" placeholder="Enter Admin Password">
+    <br>
+    <button class="login-btn" onclick="login()">Login</button>
+    <div class="error" id="error"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="container" id="dashboard">
+    <h1>HyperClutch Admin Panel</h1>
+
+    <a href="admin-payments.html" class="btn payments">Go to Payments</a>
+    <a href="admin.html" class="btn dashboard">Go to Dashboard</a>
+    <a href="adminpay.html" class="btn adminpay">Go to Admin Pay</a>
+    <a href="adminplayer.html" class="btn players">Go to Player Management</a>
+  </div>
+
+  <script>
+    const ADMIN_PASSWORD = "12345"; // CHANGE THIS
+
+    function login() {
+      const pass = document.getElementById("password").value;
+      const error = document.getElementById("error");
+
+      if (pass === ADMIN_PASSWORD) {
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+      } else {
+        error.innerText = "Wrong password!";
+      }
+    }
+  </script>
+
+</body>
+</html>

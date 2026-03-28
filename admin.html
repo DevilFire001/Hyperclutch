@@ -1,0 +1,218 @@
+        <!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<title>HyperClutch Tournament Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#0f172a;
+    margin:0;
+    color:white;
+}
+
+.header{
+    background:#020617;
+    padding:15px;
+    text-align:center;
+    font-size:20px;
+    font-weight:bold;
+    border-bottom:1px solid #1e293b;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
+
+.form{
+    background:#1e293b;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:25px;
+}
+
+.form input{
+    width:100%;
+    padding:10px;
+    margin:8px 0;
+    border:none;
+    border-radius:6px;
+}
+
+button{
+    padding:10px;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+    cursor:pointer;
+    margin-top:10px;
+}
+
+.add{
+    background:#22c55e;
+    color:white;
+    width:100%;
+}
+
+.delete{
+    background:#ef4444;
+    color:white;
+    margin-top:10px;
+}
+
+.card{
+    background:#1e293b;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:15px;
+}
+
+.card p{
+    margin:5px 0;
+    font-size:14px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+🏆 HyperClutch Tournament Admin
+</div>
+
+<div class="container">
+
+<div class="form">
+
+<h3>Add Tournament</h3>
+
+<input id="name" placeholder="Tournament Name">
+
+<!-- NEW datetime-local input -->
+<label style="margin-top:10px;">Date & Time</label>
+<input type="datetime-local" id="datetime">
+
+<input id="entry_fee" type="number" placeholder="Entry Fee (₹)">
+<input id="winning_prize" type="number" placeholder="Winning Prize">
+<input id="per_kill" type="number" placeholder="Per Kill Prize">
+<input id="highest_kill" type="number" placeholder="Highest Kill Prize">
+
+<button class="add" onclick="addTournament()">Add Tournament</button>
+
+</div>
+
+<div id="tournaments"></div>
+
+</div>
+
+<script>
+
+/* FIREBASE CONFIG */
+
+const firebaseConfig={
+apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
+authDomain:"hyperclutch.firebaseapp.com",
+projectId:"hyperclutch",
+appId:"1:781538384038:web:002bb30ad711c3deb3fc67"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db=firebase.firestore();
+
+/* LOAD TOURNAMENTS */
+
+function loadTournaments(){
+    const container=document.getElementById("tournaments");
+    db.collection("tournaments").orderBy("datetime","asc").onSnapshot(snapshot=>{
+        container.innerHTML="";
+        if(snapshot.empty){
+            container.innerHTML="<p>No tournaments added yet</p>";
+            return;
+        }
+        snapshot.forEach(doc=>{
+            const t=doc.data();
+            const dateObj = t.datetime.toDate(); // Firestore Timestamp -> JS Date
+            const formattedDate = dateObj.toLocaleDateString();
+            const formattedTime = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            container.innerHTML+=`
+            <div class="card">
+                <h3>${t.name}</h3>
+                <p>💰 Entry Fee: ₹${t.entry_fee}</p>
+                <p>🏆 Winning Prize: ₹${t.winning_prize}</p>
+                <p>🔥 Per Kill: ₹${t.per_kill}</p>
+                <p>🎯 Highest Kill: ₹${t.highest_kill}</p>
+                <p>📅 ${formattedDate}</p>
+                <p>⏰ ${formattedTime}</p>
+                <button class="delete" onclick="deleteTournament('${doc.id}')">Delete Tournament</button>
+            </div>
+            `;
+        });
+    });
+}
+
+/* ADD TOURNAMENT */
+
+function addTournament(){
+    const name=document.getElementById("name").value;
+    const datetimeStr=document.getElementById("datetime").value;
+    const entry_fee=document.getElementById("entry_fee").value;
+    const winning_prize=document.getElementById("winning_prize").value;
+    const per_kill=document.getElementById("per_kill").value;
+    const highest_kill=document.getElementById("highest_kill").value;
+
+    if(!name || !datetimeStr || !entry_fee){
+        alert("Please fill required fields");
+        return;
+    }
+
+    const datetime = new Date(datetimeStr); // JS Date from input
+
+    db.collection("tournaments").add({
+        name: name,
+        datetime: firebase.firestore.Timestamp.fromDate(datetime),
+        entry_fee: Number(entry_fee),
+        winning_prize: Number(winning_prize),
+        per_kill: Number(per_kill),
+        highest_kill: Number(highest_kill),
+        created_at: firebase.firestore.Timestamp.fromDate(new Date())
+    }).then(()=>{
+        alert("Tournament Added Successfully");
+
+        document.getElementById("name").value="";
+        document.getElementById("datetime").value="";
+        document.getElementById("entry_fee").value="";
+        document.getElementById("winning_prize").value="";
+        document.getElementById("per_kill").value="";
+        document.getElementById("highest_kill").value="";
+    });
+}
+
+/* DELETE TOURNAMENT */
+
+function deleteTournament(id){
+    if(!confirm("Delete this tournament?")) return;
+    db.collection("tournaments").doc(id).delete()
+    .then(()=>{ alert("Tournament Deleted"); });
+}
+
+/* START */
+loadTournaments();
+
+</script>
+
+</body>
+</html>    

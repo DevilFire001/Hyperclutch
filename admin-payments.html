@@ -1,0 +1,288 @@
+        <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HyperClutch Admin - Payments</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+/* GENERAL */
+body {
+    background: #0f172a;
+    color: #f1f5f9;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+h1, h2 {
+    text-align: center;
+    margin-bottom: 15px;
+}
+.container {
+    max-width: 900px;
+    margin: auto;
+    margin-bottom: 30px;
+}
+
+/* CARD */
+.card {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border-left: 6px solid #2563eb;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+/* REQUEST INFO */
+.card-info {
+    flex: 1;
+    min-width: 200px;
+}
+.card-info div {
+    margin: 5px 0;
+}
+
+/* STATUS COLORS */
+.status-approved { color: #22c55e; font-weight: bold; }
+.status-cancelled { color: #ef4444; font-weight: bold; }
+
+/* BUTTONS */
+.buttons {
+    display: flex;
+    gap: 10px;
+}
+button {
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+button.approve { background: #22c55e; }
+button.approve:hover { background: #16a34a; }
+button.cancel { background: #ef4444; }
+button.cancel:hover { background: #dc2626; }
+
+/* EMPTY MESSAGE */
+.empty {
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+    margin-top: 20px;
+}
+
+/* MODAL */
+.modal-bg {
+    display: none;
+    position: fixed;
+    top:0; left:0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75);
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+.modal {
+    background: #1e293b;
+    padding: 25px 30px;
+    border-radius: 12px;
+    text-align: center;
+    min-width: 280px;
+}
+.modal button {
+    width: 100px;
+    margin: 15px 10px 0 10px;
+}
+</style>
+</head>
+<body>
+
+<h1>💰 Payment Requests</h1>
+<div class="container" id="requestsContainer"></div>
+
+<h2>📜 Payment History</h2>
+<div class="container" id="historyContainer"></div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal">
+    <div class="modal">
+        <p id="modalText"></p>
+        <button id="modalYes" class="approve">Yes</button>
+        <button id="modalNo" class="cancel">No</button>
+    </div>
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+// CONFIG
+const ADMIN_UID = "rveTtnZTLwNHIU9MZORa8auOxFU2";
+const firebaseConfig = {
+    apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
+    authDomain:"hyperclutch.firebaseapp.com",
+    projectId:"hyperclutch",
+    appId:"1:781538384038:web:002bb30ad711c3deb3fc67",
+    databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/"
+};
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const rtdb = firebase.database();
+
+// CURRENT MODAL DATA
+let modalData = {};
+
+// AUTH CHECK
+auth.onAuthStateChanged(user => {
+    if(!user || user.uid !== ADMIN_UID){
+        alert("⛔ Access Denied");
+        window.location="index.html";
+        return;
+    }
+    loadRequests();
+    loadHistory();
+});
+
+// LOAD PAYMENT REQUESTS
+function loadRequests(){
+    db.collection("paymentRequests").onSnapshot(snapshot => {
+        const container = document.getElementById("requestsContainer");
+        container.innerHTML = "";
+        if(snapshot.empty){
+            container.innerHTML = "<div class='empty'>No Requests</div>";
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            const card = document.createElement("div");
+            card.className = "card";
+
+            card.innerHTML = `
+                <div class="card-info">
+                    <div>₹${d.amount}</div>
+                    <div>📱 ${d.phone || "-"}</div>
+                    <div>🔢 UTR: ${d.utr || "-"}</div>
+                </div>
+                <div class="buttons">
+                    <button class="approveBtn">Approve</button>
+                    <button class="cancelBtn">Cancel</button>
+                </div>
+            `;
+
+            // Save data in dataset
+            ["approveBtn","cancelBtn"].forEach(cls => {
+                const btn = card.querySelector("."+cls);
+                btn.dataset.docId = doc.id;
+                btn.dataset.uid = d.uid || "";
+                btn.dataset.amount = d.amount;
+                btn.dataset.phone = d.phone || "-";
+                btn.dataset.utr = d.utr || "-";
+            });
+
+            container.appendChild(card);
+        });
+    });
+}
+
+// LOAD HISTORY
+function loadHistory(){
+    db.collection("paymentHistory").orderBy("time","desc").onSnapshot(snapshot => {
+        const container = document.getElementById("historyContainer");
+        container.innerHTML = "";
+        if(snapshot.empty){
+            container.innerHTML = "<div class='empty'>No History</div>";
+            return;
+        }
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            const card = document.createElement("div");
+            card.className = "card";
+            const statusClass = d.status==="approved" ? "status-approved" : "status-cancelled";
+            card.innerHTML = `
+                <div class="card-info">
+                    <div class="${statusClass}">${d.status.toUpperCase()} - ₹${d.amount}</div>
+                    <div>📱 ${d.phone || "-"}</div>
+                    <div>🔢 UTR: ${d.utr || "-"}</div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    });
+}
+
+// MODAL HANDLERS
+const modal = document.getElementById("modal");
+document.getElementById("modalNo").onclick = () => modal.style.display = "none";
+document.getElementById("modalYes").onclick = () => {
+    modal.style.display = "none";
+    if(modalData.action === "approve") approvePayment(modalData);
+    else cancelPayment(modalData);
+};
+
+// EVENT DELEGATION
+document.getElementById("requestsContainer").addEventListener("click", e => {
+    if(e.target.classList.contains("approveBtn") || e.target.classList.contains("cancelBtn")){
+        const btn = e.target;
+        modalData = {
+            action: btn.classList.contains("approveBtn") ? "approve" : "cancel",
+            docId: btn.dataset.docId,
+            uid: btn.dataset.uid,
+            amount: Number(btn.dataset.amount),
+            phone: btn.dataset.phone,
+            utr: btn.dataset.utr
+        };
+        document.getElementById("modalText").innerText = modalData.action === "approve" ? "Approve Payment?" : "Cancel Payment?";
+        modal.style.display = "flex";
+    }
+});
+
+// APPROVE
+function approvePayment(data){
+    rtdb.ref("users/"+data.uid+"/wallet").once("value")
+    .then(snap => rtdb.ref("users/"+data.uid+"/wallet").set((snap.val()||0)+data.amount))
+    .then(() => db.collection("paymentHistory").add({
+        uid: data.uid,
+        amount: data.amount,
+        status: "approved",
+        phone: data.phone,
+        utr: data.utr,
+        time: Date.now()
+    }))
+    .then(() => db.collection("paymentRequests").doc(data.docId).delete())
+    .then(() => alert("✅ Payment Approved"))
+    .catch(err => { console.error(err); alert("❌ Error: "+err.message); });
+}
+
+// CANCEL
+function cancelPayment(data){
+    db.collection("paymentHistory").add({
+        uid: data.uid,
+        amount: data.amount,
+        status: "cancelled",
+        phone: data.phone,
+        utr: data.utr,
+        time: Date.now()
+    })
+    .then(() => db.collection("paymentRequests").doc(data.docId).delete())
+    .then(() => alert("❌ Payment Cancelled"))
+    .catch(err => { console.error(err); alert("❌ Error: "+err.message); });
+}
+</script>
+
+</body>
+</html>    
