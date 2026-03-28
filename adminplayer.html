@@ -11,7 +11,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <style>
-
 body{
 margin:0;
 font-family:Arial;
@@ -83,16 +82,18 @@ font-weight:bold;
 cursor:pointer;
 }
 
-button:hover{
-background:#16a34a;
-}
-
 .status{
 margin-top:15px;
 font-size:14px;
 color:#fbbf24;
 }
 
+.loading{
+text-align:center;
+margin-top:50px;
+font-size:18px;
+color:#94a3b8;
+}
 </style>
 </head>
 
@@ -102,7 +103,9 @@ color:#fbbf24;
 🔥 HyperClutch Admin Dashboard
 </div>
 
-<div class="container">
+<div id="loading" class="loading">🔄 Checking Admin Access...</div>
+
+<div class="container" id="mainContent" style="display:none;">
 
 <label>Select Tournament:</label><br>
 
@@ -111,7 +114,6 @@ color:#fbbf24;
 </select>
 
 <table class="table" id="playerTable">
-
 <thead>
 <tr>
 <th>#</th>
@@ -123,9 +125,7 @@ color:#fbbf24;
 <th>Winner</th>
 </tr>
 </thead>
-
 <tbody></tbody>
-
 </table>
 
 <button id="confirmBtn" onclick="confirmMatch()">
@@ -138,8 +138,7 @@ Confirm Match & Send Winnings
 
 <script>
 
-/* FIREBASE CONFIG */
-
+/* FIREBASE */
 const firebaseConfig={
 apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
 authDomain:"hyperclutch.firebaseapp.com",
@@ -148,13 +147,9 @@ appId:"1:781538384038:web:002bb30ad711c3deb3fc67",
 databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/"
 };
 
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
-
-/* ✅ FIX: KEEP SESSION */
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
@@ -164,8 +159,15 @@ let tournaments=[];
 let players=[];
 let currentTournament="";
 
-/* ✅ FIX: PROPER AUTH FLOW */
+/* 🔥 FIXED AUTH SYSTEM */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
+
 auth.onAuthStateChanged(user=>{
+
+if(user === undefined) return;
+
+/* WAIT FOR AUTH */
+setTimeout(()=>{
 
 if(!user){
 window.location="index.html";
@@ -173,18 +175,24 @@ return;
 }
 
 if(user.uid !== ADMIN_UID){
-alert("Access Denied");
+alert("⛔ Access Denied");
 window.location="index.html";
 return;
 }
 
-/* LOAD ONLY AFTER AUTH */
+/* SHOW PAGE */
+document.getElementById("loading").style.display="none";
+document.getElementById("mainContent").style.display="block";
+
 loadTournaments();
+
+},500);
+
+});
 
 });
 
 /* LOAD TOURNAMENTS */
-
 function loadTournaments(){
 
 const select=document.getElementById("tournamentSelect");
@@ -217,7 +225,6 @@ select.appendChild(opt);
 }
 
 /* LOAD PLAYERS */
-
 function loadPlayers(){
 
 currentTournament =
@@ -262,26 +269,14 @@ tr.innerHTML=`
 <td>${player.ffuid}</td>
 <td>${player.uid}</td>
 
-<td>
-<input type="number"
-value="0"
-min="0"
-onchange="updateKills(${index-1},this.value)">
-</td>
+<td><input type="number" value="0" min="0" onchange="updateKills(${index-1},this.value)"></td>
 
-<td>
-<input type="checkbox"
-onchange="setHighest(${index-1})">
-</td>
+<td><input type="checkbox" onchange="setHighest(${index-1})"></td>
 
-<td>
-<input type="checkbox"
-onchange="setWinner(${index-1})">
-</td>
+<td><input type="checkbox" onchange="setWinner(${index-1})"></td>
 `;
 
 tbody.appendChild(tr);
-
 index++;
 
 });
@@ -290,11 +285,8 @@ index++;
 
 }
 
-/* UPDATE FUNCTIONS */
-
-function updateKills(i,val){
-players[i].kills=parseInt(val)||0;
-}
+/* FUNCTIONS */
+function updateKills(i,val){ players[i].kills=parseInt(val)||0; }
 
 function setHighest(i){
 players.forEach(p=>p.highest=false);
@@ -309,20 +301,14 @@ reloadCheckboxes();
 }
 
 function reloadCheckboxes(){
-
 const rows=document.querySelectorAll("#playerTable tbody tr");
-
 rows.forEach((row,i)=>{
-
 row.children[5].querySelector("input").checked=players[i].highest;
 row.children[6].querySelector("input").checked=players[i].winner;
-
 });
-
 }
 
 /* CONFIRM MATCH */
-
 async function confirmMatch(){
 
 try{
@@ -335,61 +321,33 @@ return;
 document.getElementById("confirmBtn").disabled=true;
 document.getElementById("status").innerText="Processing rewards...";
 
-let tour =
-tournaments.find(t=>t.id===currentTournament);
+let tour = tournaments.find(t=>t.id===currentTournament);
 
-/* CHECK IF ALREADY COMPLETED */
-
-let check =
-await db.collection("tournamentResults")
-.doc(currentTournament)
-.get();
+let check = await db.collection("tournamentResults").doc(currentTournament).get();
 
 if(check.exists){
-
 alert("Match already completed!");
-document.getElementById("status").innerText="Tournament already processed.";
 document.getElementById("confirmBtn").disabled=false;
 return;
-
 }
 
 for(const player of players){
 
-let reward =
-player.kills * (tour.data.per_kill || 0);
+let reward = player.kills * (tour.data.per_kill || 0);
 
-if(player.highest){
-reward += (tour.data.highest_kill || 0);
-}
+if(player.highest) reward += (tour.data.highest_kill || 0);
+if(player.winner) reward += (tour.data.winning_prize || 0);
 
-if(player.winner){
-reward += (tour.data.winning_prize || 0);
-}
+await rtdb.ref("users/"+player.uid+"/wallet").transaction(c=>(c||0)+reward);
 
-/* ADD TO WALLET */
-
-await rtdb
-.ref("users/"+player.uid+"/wallet")
-.transaction(current=>{
-return (current||0)+reward;
-});
-
-/* SAVE TRANSACTION */
-
-await rtdb
-.ref("transactions/"+player.uid)
-.push({
+await rtdb.ref("transactions/"+player.uid).push({
 type:"tournament_win",
 amount:reward,
 tournament:currentTournament,
 time:Date.now()
 });
 
-/* SAVE RESULT */
-
-await db
-.collection("tournamentResults")
+await db.collection("tournamentResults")
 .doc(currentTournament)
 .collection("players")
 .doc(player.uid)
@@ -405,24 +363,17 @@ time:firebase.firestore.FieldValue.serverTimestamp()
 
 }
 
-/* LOCK */
-
-await db
-.collection("tournamentResults")
-.doc(currentTournament)
-.set({
+await db.collection("tournamentResults").doc(currentTournament).set({
 completed:true,
 time:firebase.firestore.FieldValue.serverTimestamp()
 });
 
-document.getElementById("status").innerText="✅ Rewards sent successfully!";
+document.getElementById("status").innerText="✅ Done!";
 alert("Tournament completed!");
 
-}catch(error){
-
-console.error(error);
-document.getElementById("status").innerText="❌ Error: "+error.message;
-
+}catch(e){
+console.error(e);
+alert("Error: "+e.message);
 }
 
 document.getElementById("confirmBtn").disabled=false;
