@@ -5,6 +5,7 @@
 <title>HyperClutch Admin Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -12,87 +13,91 @@
 
 <style>
 body{
-margin:0;
-font-family:Arial;
-background:#0f172a;
-color:white;
+    margin:0;
+    font-family:Arial;
+    background:#0f172a;
+    color:white;
 }
 
 .header{
-background:#020617;
-padding:15px;
-text-align:center;
-font-size:20px;
-font-weight:bold;
+    background:#020617;
+    padding:15px;
+    text-align:center;
+    font-size:20px;
+    font-weight:bold;
 }
 
 .container{
-max-width:1100px;
-margin:auto;
-padding:20px;
+    max-width:1100px;
+    margin:auto;
+    padding:20px;
 }
 
 select{
-padding:10px;
-border-radius:6px;
-border:none;
-margin-top:10px;
+    padding:10px;
+    border-radius:6px;
+    border:none;
+    margin-top:10px;
 }
 
 .table{
-width:100%;
-border-collapse:collapse;
-margin-top:20px;
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
 }
 
 .table th,.table td{
-border:1px solid #374151;
-padding:10px;
-text-align:center;
+    border:1px solid #374151;
+    padding:10px;
+    text-align:center;
 }
 
 .table th{
-background:#1e293b;
+    background:#1e293b;
 }
 
 input[type="number"]{
-width:70px;
-padding:6px;
-border:none;
-border-radius:5px;
-background:#1e293b;
-color:white;
-text-align:center;
+    width:70px;
+    padding:6px;
+    border:none;
+    border-radius:5px;
+    background:#1e293b;
+    color:white;
+    text-align:center;
 }
 
 input[type="checkbox"]{
-width:20px;
-height:20px;
-cursor:pointer;
+    width:20px;
+    height:20px;
+    cursor:pointer;
 }
 
 button{
-margin-top:20px;
-padding:12px 20px;
-border:none;
-border-radius:6px;
-background:#22c55e;
-color:white;
-font-weight:bold;
-cursor:pointer;
+    margin-top:20px;
+    padding:12px 20px;
+    border:none;
+    border-radius:6px;
+    background:#22c55e;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#16a34a;
 }
 
 .status{
-margin-top:15px;
-font-size:14px;
-color:#fbbf24;
+    margin-top:15px;
+    font-size:14px;
+    color:#fbbf24;
 }
 
 .loading{
-text-align:center;
-margin-top:50px;
-font-size:18px;
-color:#94a3b8;
+    text-align:center;
+    margin-top:50px;
+    font-size:18px;
+    color:#94a3b8;
 }
 </style>
 </head>
@@ -108,7 +113,6 @@ color:#94a3b8;
 <div class="container" id="mainContent" style="display:none;">
 
 <label>Select Tournament:</label><br>
-
 <select id="tournamentSelect" onchange="loadPlayers()">
 <option value="">--Select Tournament--</option>
 </select>
@@ -133,18 +137,16 @@ Confirm Match & Send Winnings
 </button>
 
 <div class="status" id="status"></div>
-
 </div>
 
 <script>
-
-/* FIREBASE */
-const firebaseConfig={
-apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
-authDomain:"hyperclutch.firebaseapp.com",
-projectId:"hyperclutch",
-appId:"1:781538384038:web:002bb30ad711c3deb3fc67",
-databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/"
+/* ---------------- FIREBASE CONFIG ---------------- */
+const firebaseConfig = {
+    apiKey:"AIzaSyDIA2I6-htEdMxbxxsqKkeUlq86vJjOpRo",
+    authDomain:"hyperclutch.firebaseapp.com",
+    projectId:"hyperclutch",
+    appId:"1:781538384038:web:002bb30ad711c3deb3fc67",
+    databaseURL:"https://hyperclutch-default-rtdb.firebaseio.com/"
 };
 
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -153,233 +155,191 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
-const ADMIN_UID="qeGyCVDkhdR3dVBPPqgbREjYMUT2";
+const ADMIN_UID = "qeGyCVDkhdR3dVBPPqgbREjYMUT2";
 
-let tournaments=[];
-let players=[];
-let currentTournament="";
+let tournaments = [];
+let players = [];
+let currentTournament = "";
 
-/* 🔥 FIXED AUTH SYSTEM */
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
+/* ---------------- AUTH CHECK ---------------- */
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
 
-auth.onAuthStateChanged(user=>{
+    auth.onAuthStateChanged(user => {
 
-if(user === undefined) return;
+        // Wait a bit for Firebase session restore
+        setTimeout(() => {
+            if(!user){
+                window.location = "index.html";
+                return;
+            }
 
-/* WAIT FOR AUTH */
-setTimeout(()=>{
+            if(user.uid !== ADMIN_UID){
+                alert("⛔ Access Denied");
+                window.location = "index.html";
+                return;
+            }
 
-if(!user){
-window.location="index.html";
-return;
-}
+            // Show content after auth
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("mainContent").style.display = "block";
 
-if(user.uid !== ADMIN_UID){
-alert("⛔ Access Denied");
-window.location="index.html";
-return;
-}
+            loadTournaments();
 
-/* SHOW PAGE */
-document.getElementById("loading").style.display="none";
-document.getElementById("mainContent").style.display="block";
+        }, 500);
 
-loadTournaments();
-
-},500);
-
-});
+    });
 
 });
 
-/* LOAD TOURNAMENTS */
+/* ---------------- LOAD TOURNAMENTS ---------------- */
 function loadTournaments(){
+    const select = document.getElementById("tournamentSelect");
+    select.innerHTML = '<option value="">--Select Tournament--</option>';
 
-const select=document.getElementById("tournamentSelect");
-select.innerHTML='<option value="">--Select Tournament--</option>';
-
-db.collection("tournaments")
-.orderBy("datetime","asc")
-.get()
-.then(snapshot=>{
-
-tournaments=[];
-
-snapshot.forEach(doc=>{
-
-tournaments.push({
-id:doc.id,
-data:doc.data()
-});
-
-let opt=document.createElement("option");
-opt.value=doc.id;
-opt.innerText=doc.data().name;
-
-select.appendChild(opt);
-
-});
-
-});
-
+    db.collection("tournaments")
+    .orderBy("datetime","asc")
+    .get()
+    .then(snapshot => {
+        tournaments = [];
+        snapshot.forEach(doc => {
+            tournaments.push({id: doc.id, data: doc.data()});
+            let opt = document.createElement("option");
+            opt.value = doc.id;
+            opt.innerText = doc.data().name;
+            select.appendChild(opt);
+        });
+    });
 }
 
-/* LOAD PLAYERS */
+/* ---------------- LOAD PLAYERS ---------------- */
 function loadPlayers(){
+    currentTournament = document.getElementById("tournamentSelect").value;
+    const tbody = document.querySelector("#playerTable tbody");
+    tbody.innerHTML = "";
+    players = [];
 
-currentTournament =
-document.getElementById("tournamentSelect").value;
+    if(!currentTournament) return;
 
-const tbody =
-document.querySelector("#playerTable tbody");
+    let index = 1;
+    db.collection("tournamentPlayers")
+    .doc(currentTournament)
+    .collection("players")
+    .get()
+    .then(snapshot => {
+        snapshot.forEach(doc => {
+            let p = doc.data();
+            let player = {
+                uid: doc.id,
+                name: p.name || "Unknown",
+                ffuid: p.ffuid || "-",
+                kills: 0,
+                highest: false,
+                winner: false
+            };
+            players.push(player);
 
-tbody.innerHTML="";
-players=[];
-
-if(!currentTournament) return;
-
-let index=1;
-
-db.collection("tournamentPlayers")
-.doc(currentTournament)
-.collection("players")
-.get()
-.then(snapshot=>{
-
-snapshot.forEach(doc=>{
-
-let p=doc.data();
-
-let player={
-uid:doc.id,
-name:p.name || "Unknown",
-ffuid:p.ffuid || "-",
-kills:0,
-highest:false,
-winner:false
-};
-
-players.push(player);
-
-let tr=document.createElement("tr");
-
-tr.innerHTML=`
-<td>${index}</td>
-<td>${player.name}</td>
-<td>${player.ffuid}</td>
-<td>${player.uid}</td>
-
-<td><input type="number" value="0" min="0" onchange="updateKills(${index-1},this.value)"></td>
-
-<td><input type="checkbox" onchange="setHighest(${index-1})"></td>
-
-<td><input type="checkbox" onchange="setWinner(${index-1})"></td>
-`;
-
-tbody.appendChild(tr);
-index++;
-
-});
-
-});
-
+            let tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${index}</td>
+                <td>${player.name}</td>
+                <td>${player.ffuid}</td>
+                <td>${player.uid}</td>
+                <td><input type="number" value="0" min="0" onchange="updateKills(${index-1},this.value)"></td>
+                <td><input type="checkbox" onchange="setHighest(${index-1})"></td>
+                <td><input type="checkbox" onchange="setWinner(${index-1})"></td>
+            `;
+            tbody.appendChild(tr);
+            index++;
+        });
+    });
 }
 
-/* FUNCTIONS */
+/* ---------------- HELPER FUNCTIONS ---------------- */
 function updateKills(i,val){ players[i].kills=parseInt(val)||0; }
 
 function setHighest(i){
-players.forEach(p=>p.highest=false);
-players[i].highest=true;
-reloadCheckboxes();
+    players.forEach(p => p.highest = false);
+    players[i].highest = true;
+    reloadCheckboxes();
 }
 
 function setWinner(i){
-players.forEach(p=>p.winner=false);
-players[i].winner=true;
-reloadCheckboxes();
+    players.forEach(p => p.winner = false);
+    players[i].winner = true;
+    reloadCheckboxes();
 }
 
 function reloadCheckboxes(){
-const rows=document.querySelectorAll("#playerTable tbody tr");
-rows.forEach((row,i)=>{
-row.children[5].querySelector("input").checked=players[i].highest;
-row.children[6].querySelector("input").checked=players[i].winner;
-});
+    const rows = document.querySelectorAll("#playerTable tbody tr");
+    rows.forEach((row,i)=>{
+        row.children[5].querySelector("input").checked = players[i].highest;
+        row.children[6].querySelector("input").checked = players[i].winner;
+    });
 }
 
-/* CONFIRM MATCH */
+/* ---------------- CONFIRM MATCH ---------------- */
 async function confirmMatch(){
+    try{
+        if(!currentTournament){
+            alert("Select tournament first");
+            return;
+        }
 
-try{
+        document.getElementById("confirmBtn").disabled = true;
+        document.getElementById("status").innerText = "Processing rewards...";
 
-if(!currentTournament){
-alert("Select tournament first");
-return;
+        let tour = tournaments.find(t => t.id === currentTournament);
+        let check = await db.collection("tournamentResults").doc(currentTournament).get();
+
+        if(check.exists){
+            alert("Match already completed!");
+            document.getElementById("confirmBtn").disabled = false;
+            return;
+        }
+
+        for(const player of players){
+            let reward = player.kills * (tour.data.per_kill || 0);
+            if(player.highest) reward += (tour.data.highest_kill || 0);
+            if(player.winner) reward += (tour.data.winning_prize || 0);
+
+            await rtdb.ref("users/"+player.uid+"/wallet").transaction(c=>(c||0)+reward);
+
+            await rtdb.ref("transactions/"+player.uid).push({
+                type:"tournament_win",
+                amount: reward,
+                tournament: currentTournament,
+                time: Date.now()
+            });
+
+            await db.collection("tournamentResults").doc(currentTournament)
+            .collection("players").doc(player.uid)
+            .set({
+                name: player.name,
+                ffuid: player.ffuid,
+                kills: player.kills,
+                winner: player.winner,
+                highest: player.highest,
+                reward: reward,
+                time: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        await db.collection("tournamentResults").doc(currentTournament).set({
+            completed: true,
+            time: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById("status").innerText = "✅ Rewards sent successfully!";
+        alert("Tournament completed!");
+
+    }catch(e){
+        console.error(e);
+        alert("Error: "+e.message);
+        document.getElementById("status").innerText = "❌ Error: "+e.message;
+    }
+
+    document.getElementById("confirmBtn").disabled = false;
 }
-
-document.getElementById("confirmBtn").disabled=true;
-document.getElementById("status").innerText="Processing rewards...";
-
-let tour = tournaments.find(t=>t.id===currentTournament);
-
-let check = await db.collection("tournamentResults").doc(currentTournament).get();
-
-if(check.exists){
-alert("Match already completed!");
-document.getElementById("confirmBtn").disabled=false;
-return;
-}
-
-for(const player of players){
-
-let reward = player.kills * (tour.data.per_kill || 0);
-
-if(player.highest) reward += (tour.data.highest_kill || 0);
-if(player.winner) reward += (tour.data.winning_prize || 0);
-
-await rtdb.ref("users/"+player.uid+"/wallet").transaction(c=>(c||0)+reward);
-
-await rtdb.ref("transactions/"+player.uid).push({
-type:"tournament_win",
-amount:reward,
-tournament:currentTournament,
-time:Date.now()
-});
-
-await db.collection("tournamentResults")
-.doc(currentTournament)
-.collection("players")
-.doc(player.uid)
-.set({
-name:player.name,
-ffuid:player.ffuid,
-kills:player.kills,
-winner:player.winner,
-highest:player.highest,
-reward:reward,
-time:firebase.firestore.FieldValue.serverTimestamp()
-});
-
-}
-
-await db.collection("tournamentResults").doc(currentTournament).set({
-completed:true,
-time:firebase.firestore.FieldValue.serverTimestamp()
-});
-
-document.getElementById("status").innerText="✅ Done!";
-alert("Tournament completed!");
-
-}catch(e){
-console.error(e);
-alert("Error: "+e.message);
-}
-
-document.getElementById("confirmBtn").disabled=false;
-
-}
-
 </script>
 
 </body>
