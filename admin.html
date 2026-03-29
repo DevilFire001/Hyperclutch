@@ -6,7 +6,6 @@
 <title>HyperClutch Tournament Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -101,13 +100,17 @@ button{
 
 <input id="name" placeholder="Tournament Name">
 
-<label style="margin-top:10px;">Date & Time</label>
+<label>Date & Time</label>
 <input type="datetime-local" id="datetime">
 
 <input id="entry_fee" type="number" placeholder="Entry Fee (₹)">
 <input id="winning_prize" type="number" placeholder="Winning Prize">
 <input id="per_kill" type="number" placeholder="Per Kill Prize">
 <input id="highest_kill" type="number" placeholder="Highest Kill Prize">
+
+<!-- 🆕 NEW FIELDS -->
+<input id="maxPlayers" type="number" placeholder="Max Players (e.g. 20)">
+<input id="roomLink" placeholder="Room Link (Paste here)">
 
 <button class="add" onclick="addTournament()">Add Tournament</button>
 
@@ -119,7 +122,6 @@ button{
 
 <script>
 
-/* FIREBASE CONFIG */
 const ADMIN_UID = "qeGyCVDkhdR3dVBPPqgbREjYMUT2";
 
 const firebaseConfig={
@@ -134,10 +136,8 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-/* ✅ KEEP LOGIN SESSION (IMPORTANT FIX) */
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-/* ✅ FIX: WAIT FOR AUTH BEFORE LOADING */
 auth.onAuthStateChanged(user => {
 
     if(!user){
@@ -151,14 +151,14 @@ auth.onAuthStateChanged(user => {
         return;
     }
 
-    /* ✅ LOAD ONLY AFTER AUTH SUCCESS */
     loadTournaments();
 
 });
 
-/* LOAD TOURNAMENTS */
+/* LOAD */
 
 function loadTournaments(){
+
     const container=document.getElementById("tournaments");
 
     db.collection("tournaments")
@@ -173,6 +173,7 @@ function loadTournaments(){
         }
 
         snapshot.forEach(doc=>{
+
             const t=doc.data();
 
             const dateObj = t.datetime.toDate();
@@ -186,9 +187,14 @@ function loadTournaments(){
                 <p>🏆 Winning Prize: ₹${t.winning_prize}</p>
                 <p>🔥 Per Kill: ₹${t.per_kill}</p>
                 <p>🎯 Highest Kill: ₹${t.highest_kill}</p>
+                <p>👥 Max Players: ${t.maxPlayers || 0}</p>
+                <p>🔗 Room Link: ${t.roomLink || "Not set"}</p>
                 <p>📅 ${formattedDate}</p>
                 <p>⏰ ${formattedTime}</p>
-                <button class="delete" onclick="deleteTournament('${doc.id}')">Delete Tournament</button>
+
+                <button class="delete" onclick="deleteTournament('${doc.id}')">
+                Delete Tournament
+                </button>
             </div>
             `;
         });
@@ -196,7 +202,7 @@ function loadTournaments(){
     });
 }
 
-/* ADD TOURNAMENT */
+/* ADD */
 
 function addTournament(){
 
@@ -207,7 +213,10 @@ function addTournament(){
     const per_kill=document.getElementById("per_kill").value;
     const highest_kill=document.getElementById("highest_kill").value;
 
-    if(!name || !datetimeStr || !entry_fee){
+    const maxPlayers=document.getElementById("maxPlayers").value;
+    const roomLink=document.getElementById("roomLink").value;
+
+    if(!name || !datetimeStr || !entry_fee || !maxPlayers){
         alert("Please fill required fields");
         return;
     }
@@ -215,14 +224,22 @@ function addTournament(){
     const datetime = new Date(datetimeStr);
 
     db.collection("tournaments").add({
+
         name: name,
         datetime: firebase.firestore.Timestamp.fromDate(datetime),
         entry_fee: Number(entry_fee),
         winning_prize: Number(winning_prize),
         per_kill: Number(per_kill),
         highest_kill: Number(highest_kill),
+
+        // ✅ NEW FIELDS
+        maxPlayers: Number(maxPlayers),
+        roomLink: roomLink,
+
         created_at: firebase.firestore.Timestamp.fromDate(new Date())
+
     }).then(()=>{
+
         alert("Tournament Added Successfully");
 
         document.getElementById("name").value="";
@@ -231,11 +248,14 @@ function addTournament(){
         document.getElementById("winning_prize").value="";
         document.getElementById("per_kill").value="";
         document.getElementById("highest_kill").value="";
+        document.getElementById("maxPlayers").value="";
+        document.getElementById("roomLink").value="";
+
     });
 
 }
 
-/* DELETE TOURNAMENT */
+/* DELETE */
 
 function deleteTournament(id){
 
